@@ -5,10 +5,16 @@
 #include "std_msgs/String.h"
 #include <agile_grasp/Grasp.h>
 #include <agile_grasp/Grasps.h>
+#include <agile_grasp/identified_object.h>
+#include <geometry_msgs/Vector3.h>
 
 const std::string GRASPS_TOPIC = "find_grasps";
 std::vector<agile_grasp::Grasp> hands;
+std::vector<agile_grasp::identified_object> objects;
 bool new_hand = false;
+ros::Subscriber agile_grasp_sub;
+ros::Subscriber identified_objects_sub;
+ros::Publisher hand_pose_pub;
 
 void graspCallback(const agile_grasp::Grasps msg)
 {
@@ -25,6 +31,14 @@ agile_grasp::Grasp getHand(std::string object)
     return hands[0];
 }
 
+bool validGrasp(geometry_msgs::Vector3 object_center, agile_grasp::Grasp g)
+{
+    return false;
+}
+
+
+
+
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "select_object");
@@ -35,8 +49,8 @@ int main(int argc, char** argv)
     n.param("grasps_topic", grasps_topic, GRASPS_TOPIC);
 
 
-    ros::Subscriber agile_grasp_sub = n.subscribe(grasps_topic, 1, graspCallback);
-    ros::Publisher hand_pose_pub = n.advertise<agile_grasp::Grasp>("hand_pose",10);
+    agile_grasp_sub = n.subscribe(grasps_topic, 1, graspCallback);
+    hand_pose_pub = n.advertise<agile_grasp::Grasp>("hand_pose",10);
 
     std::cout <<grasps_topic;
 
