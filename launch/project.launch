@@ -1,5 +1,7 @@
 <launch>
      <node name="select_object" pkg="agile_grasp" type="select_object" output="screen">
      	<param name="grasps_topic" value="/find_grasps/grasps" />
+     	<param name="object_grasp_topic" value="/object_grasp" />
+     	<param name="object_topic" value="/objects" />
      </node>
 </launch>
