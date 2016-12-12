@@ -221,6 +221,8 @@ void publishGraspMarkers()
         marker.id = i;
         marker_array.markers.push_back(marker);
     }
+
+    grasp_pub.publish(marker_array);
 }
 
 
