@@ -5,39 +5,53 @@
 #include "std_msgs/String.h"
 #include <agile_grasp/Grasp.h>
 #include <agile_grasp/Grasps.h>
+#include <agile_grasp/object_grasp.h>
+#include <agile_grasp/object_grasp_list.h>
 #include <agile_grasp/identified_object.h>
 #include <geometry_msgs/Vector3.h>
+#include <geometry_msgs/Quaternion.h>
 #include <std_msgs/Float32.h>
+#include <tf2_msgs/TFMessage.h>
 #include <Eigen/Dense>
 #include <math.h>
 #include <algorithm>
+#include <iostream>
 
 
+// for the type of object
+const int DONT_TRACK = -1;
+const int UNKNOWN = 0;
+const int BLOCK = 1;
+const int CUP = 2;
 
+const int NONE = -1;
+const int FINGER_TIP = 0;
+const int FULL = 1;
 
-struct full_grasp{
+struct object_grasp{
+    std::string object_id;
+    int object_type;
+    geometry_msgs::Vector3 centroid;
+    geometry_msgs::Quaternion rotation;
+
+    bool hasGrasp;
+    int graspRating;
+    float grasp_distance; //store the distance from the centroid to the grasp
+    int grasp_type;
+
     agile_grasp::Grasp grasp;
+
+    //used for visualization and non block comparisons
     geometry_msgs::Vector3 grasp_ur_corner;
     geometry_msgs::Vector3 grasp_ul_corner;
     geometry_msgs::Vector3 grasp_lr_corner;
     geometry_msgs::Vector3 grasp_ll_corner;
 };
 
-struct object_grasp{
-    std::string type;
-    int objectID;
-    geometry_msgs::Vector3 centroid;
-
-    bool hasGrasp;
-    int graspRating;
-
-    full_grasp grasp;
-};
-
 
 const std::string GRASPS_TOPIC = "/find_grasps";
 const std::string OBJECT_GRASP_TOPIC = "/object_grasp";
-const std::string OBJECT_TOPIC = "/objects";
+const std::string OBJECT_TOPIC = "/tf";
 //std::vector<agile_grasp::Grasp> hands;
 //std::vector<agile_grasp::identified_object> objects;
 bool new_hand = false;
@@ -65,8 +79,7 @@ double getMin(double a, double b, double c, double d)
     if(c<min){min=c;}
     if(d<min){min=d;}
     return min;
-}
-
+}/*
 //helper functions for grasp points
 geometry_msgs::Vector3 getUpperLeftCorner(geometry_msgs::Vector3 v, double distance, geometry_msgs::Vector3 center)
 {
@@ -106,6 +119,7 @@ geometry_msgs::Vector3 getLowerRightCorner(geometry_msgs::Vector3 v, double dist
     return corner;
 }
 
+
 //checks if the grasp is in the area of the centroid, the centroids x,y lay somewhere in the grasp
 //it gets 1 point for each axis the centroid falls between
 //ie if centroid.x is a valid x and a valid y it gets a 2
@@ -130,33 +144,6 @@ int rateGrasp(full_grasp grasp, geometry_msgs::Vector3 centroid)
     return rating;
 }
 
-//takes a full grasp with corners, and compares it to the objects and sees if it is a better grasp (based on distances and what not)
-void assignGrasp(full_grasp grasp)
-{
-    for(int i=0; i<objects.size();i++)
-    {
-        int rating = rateGrasp(objects[i].grasp, objects[i].centroid);
-        if (rating>=2)
-        {
-            if(!objects[i].hasGrasp)
-            {
-                objects[i].graspRating = rating;
-                objects[i].grasp = grasp;
-                objects[i].hasGrasp = true;
-            }
-            else if (rating > objects[i].graspRating)
-            {
-                objects[i].graspRating = rating;
-                objects[i].grasp = grasp;
-            }
-            else
-            {
-                //compare grasps
-            }
-        }
-
-    }
-}
 
 //checks if the grasp is in the area of the centroid, the centroids x,y lay somewhere in the grasp
 
@@ -173,84 +160,158 @@ void updateObject(agile_grasp::identified_object msg, int index)
     }
 
 }
+*/
 
-
-void objectCallback(const agile_grasp::identified_object msg)
+int getObjectType(std::string object_name)
 {
-    if(objects.empty())
+    if(object_name.find("block")>=0 or object_name.find("Block")>=0){return BLOCK;}
+    else if(object_name.find("cup")>=0 or object_name.find("Cup")>=0){return CUP;}
+    else{return DONT_TRACK;}
+}
+
+
+int findObject(std::string object_name)
+{
+    for(int i=0;i<objects.size();i++)
     {
-        objects.push_back(object_grasp());
-        objects[0].objectID = msg.object_id;
-        objects[0].type = msg.object_identity;
-        objects[0].hasGrasp = false;
-        objects[0].centroid.x = msg.pose.position.x;
-        objects[0].centroid.y = msg.pose.position.y;
-        objects[0].centroid.z = msg.pose.position.z;
-    }
-    else
-    {
-        bool object_found =false;
-        for(int i=0; i<objects.size();i++)
+        if(object_name.compare(objects[i].object_id)==0)
         {
-            int id = objects[i].objectID;
-            if(id==msg.object_id)
-            {
-                updateObject(msg,i);
-                object_found = true;
-                break;
-            }
+            return i;
         }
-        if(!object_found)
+    }
+    return -1;
+}
+
+//may add a validate grasp after each update
+void objectCallback(const tf2_msgs::TFMessage msg)
+{
+    for(int i=0; i<msg.transforms.size(); i++)
+    {
+        std::string object_name = msg.transforms[i].child_frame_id;
+        int type = getObjectType(object_name);
+        if(type>=0)
         {
-            objects.push_back(object_grasp());
-            int index = objects.size()-1;
-            objects[index].objectID = msg.object_id;
-            objects[index].type = msg.object_identity;
-            objects[index].hasGrasp = false;
-            objects[index].centroid.x = msg.pose.position.x;
-            objects[index].centroid.y = msg.pose.position.y;
-            objects[index].centroid.z = msg.pose.position.z;
+            if(!objects.empty())
+            {
+                int index = findObject(object_name);
+                if(index>=0)
+                {
+                    objects[index].centroid = msg.transforms[i].transform.translation;
+                    objects[index].rotation = msg.transforms[i].transform.rotation;
+                }
+                else
+                {
+                    objects.push_back(object_grasp());
+                    int last = objects.size()-1;
+                    objects[last].object_id = object_name;
+                    objects[last].object_type = type;
+                    objects[last].hasGrasp = false;
+                    objects[last].centroid = msg.transforms[i].transform.translation;
+                    objects[last].rotation = msg.transforms[i].transform.rotation;
+                }
+            }
+            else
+            {
+                objects.push_back(object_grasp());
+                objects[0].object_id = object_name;
+                objects[0].object_type = type;
+                objects[0].hasGrasp = false;
+                objects[0].centroid = msg.transforms[i].transform.translation;
+                objects[0].rotation = msg.transforms[i].transform.rotation;
+            }
         }
     }
 }
+
+
+agile_grasp::object_grasp getObjectGraspMsg(int index)
+{
+    agile_grasp::object_grasp m;
+    m.object = objects[index].object_id;
+    m.centroid = objects[index].centroid;
+    m.grasp = objects[index].grasp;
+    return m;
+}
+
+
+
+agile_grasp::object_grasp_list generateObjectGraspListMessage()
+{
+    //agile_grasp::object_grasp_list msg;
+    agile_grasp::object_grasp_list msg;
+    for(int i =0;i<objects.size();i++)
+    {
+        agile_grasp::object_grasp m = getObjectGraspMsg(i);
+        msg.list.push_back(m);
+    }
+    return msg;
+}
+
+float distanceCalc(const geometry_msgs::Vector3 center, const geometry_msgs::Vector3 centroid)
+{
+    float x = center.x-centroid.x;
+    float y = center.y-centroid.y;
+    float z = center.z-centroid.z;
+    return std::sqrt(std::pow(x,2) + std::pow(y,2) + std::pow(z,2));
+}
+
 
 void graspCallback(const agile_grasp::Grasps msg)
 {
     for (int i=0;i<msg.grasps.size();i++)
     {
-        full_grasp temp;
-        temp.grasp = msg.grasps[i];
-        double length2 = pow(temp.grasp.axis.x,2) + pow(temp.grasp.axis.y,2) + pow(temp.grasp.axis.z,2);
-        double length = sqrt(length2);
-        double half_width = temp.grasp.width.data/2;
-        geometry_msgs::Vector3 v;
-        v.x = temp.grasp.axis.x/length;
-        v.y = temp.grasp.axis.y/length;
-        v.z = temp.grasp.axis.z/length;
-        temp.grasp_ll_corner = getLowerLeftCorner(v,half_width, temp.grasp.surface_center);
-        temp.grasp_lr_corner = getLowerRightCorner(v,half_width,temp.grasp.surface_center);
-        temp.grasp_ul_corner = getUpperLeftCorner(v,half_width,temp.grasp.center);
-        temp.grasp_ur_corner = getUpperRightCorner(v,half_width,temp.grasp.center);
-        assignGrasp(temp);
+        float min_dist = 10000000.0;
+        int best_object_index =-1;
+        int grasp_type = -1;
+        geometry_msgs::Vector3 center = msg.grasps[i].center;
+        for(int j=0;j<objects.size();j++)
+        {
+            geometry_msgs::Vector3 centroid = objects[j].centroid;
+            if(objects[j].object_type==BLOCK)
+            {
+                float dist = distanceCalc(center,centroid);
+                if(dist<min_dist and !objects[j].hasGrasp)
+                {
+                    min_dist=dist;
+                    best_object_index = j;
+                    grasp_type = FINGER_TIP;
+                }
+                else if(dist<min_dist and objects[j].hasGrasp and dist<objects[i].grasp_distance)
+                {
+                    min_dist=dist;
+                    best_object_index = j;
+                    grasp_type = FINGER_TIP;
+                }
+            }
+        }
 
+        if(best_object_index>=0)
+        {
+            objects[best_object_index].grasp = msg.grasps[i];
+            objects[best_object_index].hasGrasp = true;
+            objects[best_object_index].grasp_distance = min_dist;
+            objects[best_object_index].grasp_type = grasp_type;
+        }
+
+    }
+    if(!objects.empty())
+    {
+        object_grasp_pub.publish(generateObjectGraspListMessage());
     }
 }
 
 //modify later to work with ids
 void findGraspCallback(const std_msgs::String msg)
 {
-    std::string type = msg.data;
-    for(int i=0; i<objects.size();i++)
+    std::string object = msg.data;
+    int index = findObject(object);
+    if (index>=0)
     {
-        if(objects[i].type.compare(type)==0)
-        {
-            if(objects[i].hasGrasp)
-            {
-                object_grasp_pub.publish(objects[i].grasp.grasp);
-                break;
-            }
-            else{std::cout << "Object found but has no grasp";}
-        }
+        std::cout << "Object found";
+    }
+    else
+    {
+        std::cout << "Object does not exist";
     }
 }
 
@@ -271,11 +332,13 @@ int main(int argc, char** argv)
 
 
     agile_grasp_sub = n.subscribe(grasps_topic, 1, graspCallback);
-    object_grasp_pub = n.advertise<agile_grasp::Grasp>(object_grasp_topic,10);
+    object_grasp_pub = n.advertise<agile_grasp::object_grasp_list>(object_grasp_topic,10);
     identified_objects_sub = n.subscribe(object_topic,10, objectCallback);
 
 
-    std::cout <<grasps_topic;
+    std::cout << "Grasp Topic: "<<grasps_topic <<"\n";
+    std::cout << "Object Topic: " << object_topic <<"\n";
+    std::cout << "Object Grasp Topic: " << object_grasp_topic << "\n";
 
     ros::Rate loop_rate(10);
 
