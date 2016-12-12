@@ -384,6 +384,7 @@ void graspCallback(const agile_grasp::Grasps msg)
     if(!objects.empty())
     {
         object_grasp_pub.publish(generateObjectGraspListMessage());
+        publishGraspMarkers();
     }
 }
 
