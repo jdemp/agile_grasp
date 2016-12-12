@@ -10,6 +10,9 @@
 #include <agile_grasp/identified_object.h>
 #include <geometry_msgs/Vector3.h>
 #include <geometry_msgs/Quaternion.h>
+#include "visualization_msgs/MarkerArray.h"
+#include "visualization_msgs/Marker.h"
+#include "geometry_msgs/Point.h"
 #include <std_msgs/Float32.h>
 #include <tf2_msgs/TFMessage.h>
 #include <Eigen/Dense>
@@ -52,6 +55,7 @@ struct object_grasp{
 const std::string GRASPS_TOPIC = "/find_grasps";
 const std::string OBJECT_GRASP_TOPIC = "/object_grasp";
 const std::string OBJECT_TOPIC = "/tf";
+const std::string CAMERA_FRAME = "/camera_rgb_optical_frame";
 //std::vector<agile_grasp::Grasp> hands;
 //std::vector<agile_grasp::identified_object> objects;
 bool new_hand = false;
@@ -162,6 +166,65 @@ void updateObject(agile_grasp::identified_object msg, int index)
 }
 */
 
+
+
+//Visualization Messages
+
+visualization_msgs::Marker createMarker(const std::string& frame)
+{
+    visualization_msgs::Marker marker;
+    marker.header.frame_id = frame;
+    marker.header.stamp = ros::Time::now();
+    marker.lifetime = ros::Duration(marker_lifetime_);
+    marker.action = visualization_msgs::Marker::ADD;
+    return marker;
+}
+
+visualization_msgs::Marker createApproachMarker(const std::string& frame, const geometry_msgs::Point& center,
+                                                      const Eigen::Vector3d& approach, int id, const double* color, double alpha, double diam)
+{
+    visualization_msgs::Marker marker = createMarker(frame);
+    marker.type = visualization_msgs::Marker::ARROW;
+    marker.id = id;
+    marker.scale.x = diam; // shaft diameter
+    marker.scale.y = diam; // head diameter
+    marker.scale.z = 0.01; // head length
+    marker.color.r = color[0];
+    marker.color.g = color[1];
+    marker.color.b = color[2];
+    marker.color.a = alpha;
+    geometry_msgs::Point p, q;
+    p.x = center.x;
+    p.y = center.y;
+    p.z = center.z;
+    q.x = p.x - 0.03 * approach(0);
+    q.y = p.y - 0.03 * approach(1);
+    q.z = p.z - 0.03 * approach(2);
+    marker.points.push_back(p);
+    marker.points.push_back(q);
+    return marker;
+}
+
+
+void publishGraspMarkers()
+{
+    visualization_msgs::MarkerArray marker_array;
+    for(int i =0;i<objects.size();i++)
+    {
+        geometry_msgs::Point position;
+        position.x = objects[i].grasp.surface_center.x;
+        position.y = objects[i].grasp.surface_center.y;
+        position.z = objects[i].grasp.surface_center.z;
+        visualization_msgs::Marker marker = createApproachMarker(frame, position, objects[i].grasp.approach, i, color, 0.4,
+                                                                 0.004);
+        marker.id = i;
+        marker_array.markers.push_back(marker);
+    }
+}
+
+
+
+
 int getObjectType(std::string object_name)
 {
     if(object_name.compare(0,5,"block")==0 or object_name.compare(0,5,"Block")==0){return BLOCK;}
@@ -181,6 +244,7 @@ int findObject(std::string object_name)
     }
     return -1;
 }
+
 
 //may add a validate grasp after each update
 void objectCallback(const tf2_msgs::TFMessage msg)
@@ -250,6 +314,7 @@ agile_grasp::object_grasp_list generateObjectGraspListMessage()
     }
     return msg;
 }
+
 
 float distanceCalc(const geometry_msgs::Vector3 center, const geometry_msgs::Vector3 centroid)
 {
@@ -328,10 +393,12 @@ int main(int argc, char** argv)
     std::string grasps_topic;
     std::string object_grasp_topic;
     std::string object_topic;
+    std::string camera_frame
 
     n.param("grasps_topic", grasps_topic, GRASPS_TOPIC);
     n.param("object_grasp_topic", object_grasp_topic, OBJECT_GRASP_TOPIC);
     n.param("object_topic", object_topic, OBJECT_TOPIC);
+    n.param("camera_frame",camera_frame, CAMERA_FRAME);
 
 
 

@@ -5,7 +5,7 @@
 
 
 const std::string CLOUD_TOPIC = "input_cloud";
-const std::string CLOUD_FRAME = "camera_rgb_optical_frame";
+const std::string CLOUD_FRAME = "/camera_rgb_optical_frame";
 const std::string SVM_FILE_NAME = "/home/baxter/svm";
 const int NUM_THREADS = 1;
 const int NUM_SAMPLES = 1000;
