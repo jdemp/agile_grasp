@@ -194,12 +194,16 @@ void objectCallback(const tf2_msgs::TFMessage msg)
             if(!objects.empty())
             {
                 int index = findObject(object_name);
-                if(index>=0)
+                if(index>=0 and msg.transforms[i].transform.translation.x!=0 and msg.transforms[i].transform.translation.y!=0 and msg.transforms[i].transform.translation!=0)
                 {
                     objects[index].centroid = msg.transforms[i].transform.translation;
                     objects[index].rotation = msg.transforms[i].transform.rotation;
                 }
-                else
+                else if (index>=0)
+                {
+                    objects.erase(index); //remove objects that should not be tracked
+                }
+                else if (msg.transforms[i].transform.translation.x!=0 and msg.transforms[i].transform.translation.y!=0 and msg.transforms[i].transform.translation!=0)
                 {
                     objects.push_back(object_grasp());
                     int last = objects.size()-1;
