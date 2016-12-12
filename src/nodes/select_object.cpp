@@ -164,8 +164,8 @@ void updateObject(agile_grasp::identified_object msg, int index)
 
 int getObjectType(std::string object_name)
 {
-    if(object_name.find("block")>=0 or object_name.find("Block")>=0){return BLOCK;}
-    else if(object_name.find("cup")>=0 or object_name.find("Cup")>=0){return CUP;}
+    if(object_name.compare(0,5,"block")==0 or object_name.compare(0,5,"Block")==0){return BLOCK;}
+    else if(object_name.compare(0,3,"cup")==0 or object_name.compare(0,3,"Cup")==0){return CUP;}
     else{return DONT_TRACK;}
 }
 
