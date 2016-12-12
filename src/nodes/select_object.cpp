@@ -56,12 +56,14 @@ const std::string GRASPS_TOPIC = "/find_grasps";
 const std::string OBJECT_GRASP_TOPIC = "/object_grasp";
 const std::string OBJECT_TOPIC = "/tf";
 const std::string CAMERA_FRAME = "/camera_rgb_optical_frame";
+const std::string GRASPS_PUB = "/grasps_visual";
 //std::vector<agile_grasp::Grasp> hands;
 //std::vector<agile_grasp::identified_object> objects;
 bool new_hand = false;
 ros::Subscriber agile_grasp_sub;
 ros::Subscriber identified_objects_sub;
 ros::Publisher object_grasp_pub;
+ros::Publisher grasp_pub;
 std::vector<object_grasp> objects;
 
 
@@ -175,13 +177,13 @@ visualization_msgs::Marker createMarker(const std::string& frame)
     visualization_msgs::Marker marker;
     marker.header.frame_id = frame;
     marker.header.stamp = ros::Time::now();
-    marker.lifetime = ros::Duration(marker_lifetime_);
+    marker.lifetime = ros::Duration(10);
     marker.action = visualization_msgs::Marker::ADD;
     return marker;
 }
 
 visualization_msgs::Marker createApproachMarker(const std::string& frame, const geometry_msgs::Point& center,
-                                                      const Eigen::Vector3d& approach, int id, const double* color, double alpha, double diam)
+                                                      const geometry_msgs::Vector3 approach, int id, double diam)
 {
     visualization_msgs::Marker marker = createMarker(frame);
     marker.type = visualization_msgs::Marker::ARROW;
@@ -189,17 +191,17 @@ visualization_msgs::Marker createApproachMarker(const std::string& frame, const 
     marker.scale.x = diam; // shaft diameter
     marker.scale.y = diam; // head diameter
     marker.scale.z = 0.01; // head length
-    marker.color.r = color[0];
-    marker.color.g = color[1];
-    marker.color.b = color[2];
-    marker.color.a = alpha;
+    marker.color.r = 0;
+    marker.color.g = 1;
+    marker.color.b = 0;
+    marker.color.a = .4;
     geometry_msgs::Point p, q;
     p.x = center.x;
     p.y = center.y;
     p.z = center.z;
-    q.x = p.x - 0.03 * approach(0);
-    q.y = p.y - 0.03 * approach(1);
-    q.z = p.z - 0.03 * approach(2);
+    q.x = p.x - 0.05 * approach.x;
+    q.y = p.y - 0.05 * approach.y;
+    q.z = p.z - 0.05 * approach.z;
     marker.points.push_back(p);
     marker.points.push_back(q);
     return marker;
@@ -215,8 +217,7 @@ void publishGraspMarkers()
         position.x = objects[i].grasp.surface_center.x;
         position.y = objects[i].grasp.surface_center.y;
         position.z = objects[i].grasp.surface_center.z;
-        visualization_msgs::Marker marker = createApproachMarker(frame, position, objects[i].grasp.approach, i, color, 0.4,
-                                                                 0.004);
+        visualization_msgs::Marker marker = createApproachMarker(CAMERA_FRAME, position, objects[i].grasp.approach, i, 0.004);
         marker.id = i;
         marker_array.markers.push_back(marker);
     }
@@ -352,6 +353,23 @@ void graspCallback(const agile_grasp::Grasps msg)
                     grasp_type = FINGER_TIP;
                 }
             }
+            else
+            {
+                float dist = distanceCalc(center,centroid);
+                if(dist<min_dist and !objects[j].hasGrasp)
+                {
+                    min_dist=dist;
+                    best_object_index = j;
+                    grasp_type = FINGER_TIP;
+                }
+                else if(dist<min_dist and objects[j].hasGrasp and dist<objects[i].grasp_distance)
+                {
+                    min_dist=dist;
+                    best_object_index = j;
+                    grasp_type = FINGER_TIP;
+                }
+            }
+
         }
 
         if(best_object_index>=0)
@@ -393,18 +411,19 @@ int main(int argc, char** argv)
     std::string grasps_topic;
     std::string object_grasp_topic;
     std::string object_topic;
-    std::string camera_frame
+    std::string grasp_pub_topic;
 
     n.param("grasps_topic", grasps_topic, GRASPS_TOPIC);
     n.param("object_grasp_topic", object_grasp_topic, OBJECT_GRASP_TOPIC);
     n.param("object_topic", object_topic, OBJECT_TOPIC);
-    n.param("camera_frame",camera_frame, CAMERA_FRAME);
+    n.param("grasps_pub", grasp_pub_topic, GRASPS_PUB);
 
 
 
     agile_grasp_sub = n.subscribe(grasps_topic, 1, graspCallback);
     object_grasp_pub = n.advertise<agile_grasp::object_grasp_list>(object_grasp_topic,10);
     identified_objects_sub = n.subscribe(object_topic,10, objectCallback);
+    grasp_pub = n.advertise<visualization_msgs::MarkerArray>(grasp_pub_topic,5);
 
 
     std::cout << "Grasp Topic: "<<grasps_topic <<"\n";
