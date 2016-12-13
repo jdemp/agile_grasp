@@ -134,7 +134,7 @@ geometry_msgs::Vector3 getLowerRightCorner(geometry_msgs::Vector3 v, double dist
 //it gets 1 point for each axis the centroid falls between
 //ie if centroid.x is a valid x and a valid y it gets a 2
 //may take into account type of object at somepoint (mainly for blocks)
-int rateGrasp(agile::Grasp grasp, geometry_msgs::Vector3 centroid)
+int rateGrasp(agile_grasp::Grasp grasp, geometry_msgs::Vector3 centroid)
 {
     double length2 = pow(grasp.axis.x,2) + pow(grasp.axis.y,2) + pow(grasp.axis.z,2);
     double length = sqrt(length2);
@@ -143,10 +143,10 @@ int rateGrasp(agile::Grasp grasp, geometry_msgs::Vector3 centroid)
     v.x = grasp.axis.x/length;
     v.y = grasp.axis.y/length;
     v.z = grasp.axis.z/length;
-    grasp_ll_corner = getLowerLeftCorner(v,half_width, temp.grasp.surface_center);
-    grasp_lr_corner = getLowerRightCorner(v,half_width,temp.grasp.surface_center);
-    grasp_ul_corner = getUpperLeftCorner(v,half_width,temp.grasp.center);
-    grasp_ur_corner = getUpperRightCorner(v,half_width,temp.grasp.center);
+    geometry_msgs::Vector3 grasp_ll_corner = getLowerLeftCorner(v,half_width, temp.grasp.surface_center);
+    geometry_msgs::Vector3 grasp_lr_corner = getLowerRightCorner(v,half_width,temp.grasp.surface_center);
+    geometry_msgs::Vector3 grasp_ul_corner = getUpperLeftCorner(v,half_width,temp.grasp.center);
+    geometry_msgs::Vector3 grasp_ur_corner = getUpperRightCorner(v,half_width,temp.grasp.center);
 
     //get the min x,y,z for the hand from the corners
     double min_x = getMin(grasp_lr_corner.x, grasp_ur_corner.x,grasp_ll_corner.x, grasp_ul_corner.x);
@@ -166,12 +166,12 @@ int rateGrasp(agile::Grasp grasp, geometry_msgs::Vector3 centroid)
     return rating;
 }
 
-
+/*
 bool validGrasp(agile::Grasp grasp, geometry_msgs::Vector3 centroid)
 {
 
 }
-
+*/
 
 //checks if the grasp is in the area of the centroid, the centroids x,y lay somewhere in the grasp
 
@@ -356,7 +356,7 @@ void graspCallback(const agile_grasp::Grasps msg)
         int best_object_index =-1;
         int grasp_type = -1;
         geometry_msgs::Vector3 center = msg.grasps[i].center;
-        float width = msg.grasps[i].width;
+        float width = msg.grasps[i].width.data;
         for(int j=0;j<objects.size();j++)
         {
             geometry_msgs::Vector3 centroid = objects[j].centroid;
@@ -379,13 +379,14 @@ void graspCallback(const agile_grasp::Grasps msg)
             else if(objects[i].object_type==CUP and width<(CUP_WIDTH+.01) and width>(CUP_WIDTH-.01))
             {
                 float dist = distanceCalc(msg.grasps[i].surface_center, centroid);
-                if(!objects[j].hasGrasp and rateGrasp(grasps[i],centroid)>=2 and dist<min_dist)
+                int rating = rateGrasp(msg.grasp[i],centroid);
+                if(!objects[j].hasGrasp and rating>=2 and dist<min_dist)
                 {d
                     best_object_index=j;
                     min_dist = dist;
                     grasp_type=FULL;
                 }
-                else if (rateGrasp(grasps[i],centroid)>=2 and dist<min_dist and dist<objects[i].grasp_distance)
+                else if (rating>=2 and dist<min_dist and dist<objects[i].grasp_distance)
                 {
                     best_object_index=j;
                     min_dist = dist;
