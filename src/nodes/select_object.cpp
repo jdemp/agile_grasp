@@ -27,6 +27,9 @@ const int UNKNOWN = 0;
 const int BLOCK = 1;
 const int CUP = 2;
 
+const double CUP_WIDTH = .08;
+const double BLOCK_WIDTH = .025;
+
 const int NONE = -1;
 const int FINGER_TIP = 0;
 const int FULL = 1;
@@ -85,8 +88,9 @@ double getMin(double a, double b, double c, double d)
     if(c<min){min=c;}
     if(d<min){min=d;}
     return min;
-}/*
-//helper functions for grasp points
+}
+
+//helper functions for grasp points for cup
 geometry_msgs::Vector3 getUpperLeftCorner(geometry_msgs::Vector3 v, double distance, geometry_msgs::Vector3 center)
 {
     geometry_msgs::Vector3 corner;
@@ -130,16 +134,28 @@ geometry_msgs::Vector3 getLowerRightCorner(geometry_msgs::Vector3 v, double dist
 //it gets 1 point for each axis the centroid falls between
 //ie if centroid.x is a valid x and a valid y it gets a 2
 //may take into account type of object at somepoint (mainly for blocks)
-int rateGrasp(full_grasp grasp, geometry_msgs::Vector3 centroid)
+int rateGrasp(agile::Grasp grasp, geometry_msgs::Vector3 centroid)
 {
+    double length2 = pow(grasp.axis.x,2) + pow(grasp.axis.y,2) + pow(grasp.axis.z,2);
+    double length = sqrt(length2);
+    double half_width = grasp.width.data/2;
+    geometry_msgs::Vector3 v;
+    v.x = grasp.axis.x/length;
+    v.y = grasp.axis.y/length;
+    v.z = grasp.axis.z/length;
+    grasp_ll_corner = getLowerLeftCorner(v,half_width, temp.grasp.surface_center);
+    grasp_lr_corner = getLowerRightCorner(v,half_width,temp.grasp.surface_center);
+    grasp_ul_corner = getUpperLeftCorner(v,half_width,temp.grasp.center);
+    grasp_ur_corner = getUpperRightCorner(v,half_width,temp.grasp.center);
+
     //get the min x,y,z for the hand from the corners
-    double min_x = getMin(grasp.grasp_lr_corner.x, grasp.grasp_ur_corner.x,grasp.grasp_ll_corner.x, grasp.grasp_ul_corner.x);
-    double min_y = getMin(grasp.grasp_lr_corner.y, grasp.grasp_ur_corner.y,grasp.grasp_ll_corner.y, grasp.grasp_ul_corner.y);
+    double min_x = getMin(grasp_lr_corner.x, grasp_ur_corner.x,grasp_ll_corner.x, grasp_ul_corner.x);
+    double min_y = getMin(grasp_lr_corner.y, grasp_ur_corner.y,grasp_ll_corner.y, grasp_ul_corner.y);
     //double min_z = getMin(grasp.grasp_lr_corner.z, grasp.grasp_ur_corner.z,grasp.grasp_ll_corner.z, grasp.grasp_ul_corner.z);
 
     //get the max x,y,z for the hand from the corners
-    double max_x = getMax(grasp.grasp_lr_corner.x, grasp.grasp_ur_corner.x,grasp.grasp_ll_corner.x, grasp.grasp_ul_corner.x);
-    double max_y = getMax(grasp.grasp_lr_corner.y, grasp.grasp_ur_corner.y,grasp.grasp_ll_corner.y, grasp.grasp_ul_corner.y);
+    double max_x = getMax(grasp_lr_corner.x, grasp_ur_corner.x,grasp_ll_corner.x, grasp_ul_corner.x);
+    double max_y = getMax(grasp_lr_corner.y, grasp_ur_corner.y,grasp_ll_corner.y, grasp_ul_corner.y);
     //double max_z = getMax(grasp.grasp_lr_corner.z, grasp.grasp_ur_corner.z,grasp.grasp_ll_corner.z, grasp.grasp_ul_corner.z);
 
     int rating=0;
@@ -148,6 +164,12 @@ int rateGrasp(full_grasp grasp, geometry_msgs::Vector3 centroid)
     if(centroid.y > min_y and centroid.y < max_y){rating++;}
 
     return rating;
+}
+
+
+bool validGrasp(agile::Grasp grasp, geometry_msgs::Vector3 centroid)
+{
+
 }
 
 
@@ -166,8 +188,6 @@ void updateObject(agile_grasp::identified_object msg, int index)
     }
 
 }
-*/
-
 
 
 //Visualization Messages
@@ -336,10 +356,11 @@ void graspCallback(const agile_grasp::Grasps msg)
         int best_object_index =-1;
         int grasp_type = -1;
         geometry_msgs::Vector3 center = msg.grasps[i].center;
+        float width = msg.grasps[i].width;
         for(int j=0;j<objects.size();j++)
         {
             geometry_msgs::Vector3 centroid = objects[j].centroid;
-            if(objects[j].object_type==BLOCK)
+            if(objects[j].object_type==BLOCK and width<(BLOCK_WIDTH+.05) and width>(BLOCK_WIDTH-.05))
             {
                 float dist = distanceCalc(center,centroid);
                 if(dist<min_dist and !objects[j].hasGrasp)
@@ -348,15 +369,32 @@ void graspCallback(const agile_grasp::Grasps msg)
                     best_object_index = j;
                     grasp_type = FINGER_TIP;
                 }
-                else if(dist<min_dist and objects[j].hasGrasp and dist<objects[i].grasp_distance)
+                else if(dist<min_dist and objects[j].hasGrasp and dist<objects[j].grasp_distance)
                 {
                     min_dist=dist;
                     best_object_index = j;
                     grasp_type = FINGER_TIP;
                 }
             }
+            else if(objects[i].object_type==CUP and width<(CUP_WIDTH+.01) and width>(CUP_WIDTH-.01))
+            {
+                float dist = distanceCalc(msg.grasps[i].surface_center, centroid);
+                if(!objects[j].hasGrasp and rateGrasp(grasps[i],centroid)>=2 and dist<min_dist)
+                {d
+                    best_object_index=j;
+                    min_dist = dist;
+                    grasp_type=FULL;
+                }
+                else if (rateGrasp(grasps[i],centroid)>=2 and dist<min_dist and dist<objects[i].grasp_distance)
+                {
+                    best_object_index=j;
+                    min_dist = dist;
+                    grasp_type=FULL;
+                }
+            }
             else
             {
+                /*
                 float dist = distanceCalc(center,centroid);
                 if(dist<min_dist and !objects[j].hasGrasp)
                 {
@@ -370,6 +408,8 @@ void graspCallback(const agile_grasp::Grasps msg)
                     best_object_index = j;
                     grasp_type = FINGER_TIP;
                 }
+                 */
+                continue;
             }
 
         }
