@@ -300,8 +300,11 @@ void objectCallback(const tf2_msgs::TFMessage msg)
                     objects[index].centroid = msg.transforms[i].transform.translation;
                     objects[index].rotation = msg.transforms[i].transform.rotation;
                 }
-                else if (msg.transforms[i].transform.translation.x!=0 and msg.transforms[i].transform.translation.y!=0 and msg.transforms[i].transform.translation.z!=0)
+                else if (msg.transforms[i].transform.translation.x==0 and msg.transforms[i].transform.translation.y==0 and msg.transforms[i].transform.translation.z==0)
                 {
+                    continue;
+                }
+                else{
                     objects.push_back(object_grasp());
                     int last = objects.size()-1;
                     objects[last].object_id = object_name;
