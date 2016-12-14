@@ -389,7 +389,7 @@ void graspCallback(const agile_grasp::Grasps msg)
             else if(objects[j].object_type==CUP and width<(CUP_WIDTH+.01) and width>(CUP_WIDTH-.01))
             {
                 geometry_msgs::Vector3 midpoint = getMidpoint(msg.grasps[i].surface_center, msg.grasps[i].center);
-                float dist = distanceCalc(msg.grasps[i], centroid);
+                float dist = distanceCalc(midpoint, centroid);
                 int rating = rateGrasp(msg.grasps[i],centroid);
                 if(!objects[j].hasGrasp and rating>=2 and dist<min_dist and dist<.08)
                 {
