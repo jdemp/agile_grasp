@@ -15,7 +15,7 @@
          <param name="num_threads" value="4" />
          <param name="num_clouds" value="1" />
          <param name="hand_depth" value = ".07" />
-     	<rosparam param="workspace"> [0, 1, -0.32,1, -0.5, 1] </rosparam>
+     	<rosparam param="workspace"> [0, 1, -0.32,1, -0.3, 1] </rosparam>
          <rosparam param="camera_pose"> [0, 0.445417, 0.895323, 0.215,
                    1, 0, 0, -0.015,
                    0, 0.895323, -0.445417, 0.23,
