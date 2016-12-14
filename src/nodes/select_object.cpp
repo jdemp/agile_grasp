@@ -166,6 +166,16 @@ int rateGrasp(agile_grasp::Grasp grasp, geometry_msgs::Vector3 centroid)
     return rating;
 }
 
+geometry_msgs::Vector3 getMidpoint(geometry_msgs::Vector3 point1, geometry_msgs::Vector3 point2)
+{
+    geometry_msgs::Vector3 midpoint;
+    midpoint.x = (point1.x + point2.x)/2;
+    midpoint.y = (point1.y + point2.y)/2;
+    midpoint.z = (point1.z + point2.z)/2;
+    return midpoint;
+
+}
+
 /*
 bool validGrasp(agile::Grasp grasp, geometry_msgs::Vector3 centroid)
 {
@@ -237,7 +247,7 @@ void publishGraspMarkers()
         position.x = objects[i].grasp.surface_center.x;
         position.y = objects[i].grasp.surface_center.y;
         position.z = objects[i].grasp.surface_center.z;
-        visualization_msgs::Marker marker = createApproachMarker(CAMERA_FRAME, position, objects[i].grasp.approach, i, 0.004);
+        visualization_msgs::Marker marker = createApproachMarker(CAMERA_FRAME, position, objects[i].grasp.approach, i, 0.008);
         marker.id = i;
         marker_array.markers.push_back(marker);
     }
@@ -363,13 +373,13 @@ void graspCallback(const agile_grasp::Grasps msg)
             if(objects[j].object_type==BLOCK and width<(BLOCK_WIDTH+.05) and width>(BLOCK_WIDTH-.05))
             {
                 float dist = distanceCalc(center,centroid);
-                if(dist<min_dist and !objects[j].hasGrasp)
+                if(dist<min_dist and !objects[j].hasGrasp and dist<.02)
                 {
                     min_dist=dist;
                     best_object_index = j;
                     grasp_type = FINGER_TIP;
                 }
-                else if(dist<min_dist and objects[j].hasGrasp and dist<objects[j].grasp_distance)
+                else if(dist<min_dist and objects[j].hasGrasp and dist<objects[j].grasp_distance and dist<.02)
                 {
                     min_dist=dist;
                     best_object_index = j;
@@ -378,15 +388,16 @@ void graspCallback(const agile_grasp::Grasps msg)
             }
             else if(objects[i].object_type==CUP and width<(CUP_WIDTH+.01) and width>(CUP_WIDTH-.01))
             {
-                float dist = distanceCalc(msg.grasps[i].surface_center, centroid);
+                geometry_msgs::Vector3 midpoint = getMidpoint(msg.grasps[i].surface_center, msg.grasps[i].center);
+                float dist = distanceCalc(midpoint, centroid);
                 int rating = rateGrasp(msg.grasps[i],centroid);
-                if(!objects[j].hasGrasp and rating>=2 and dist<min_dist)
+                if(!objects[j].hasGrasp and rating>=2 and dist<min_dist and dist<.04)
                 {
                     best_object_index=j;
                     min_dist = dist;
                     grasp_type=FULL;
                 }
-                else if (rating>=2 and dist<min_dist and dist<objects[i].grasp_distance)
+                else if (rating>=2 and dist<min_dist and dist<objects[i].grasp_distance and dist<.04)
                 {
                     best_object_index=j;
                     min_dist = dist;
