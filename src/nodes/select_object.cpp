@@ -282,6 +282,7 @@ int findObject(std::string object_name)
 //may add a validate grasp after each update
 void objectCallback(const tf2_msgs::TFMessage msg)
 {
+
     for(int i=0; i<msg.transforms.size(); i++)
     {
         std::string object_name = msg.transforms[i].child_frame_id;
@@ -302,7 +303,7 @@ void objectCallback(const tf2_msgs::TFMessage msg)
                 }
                 else if (msg.transforms[i].transform.translation.x==0 and msg.transforms[i].transform.translation.y==0 and msg.transforms[i].transform.translation.z==0)
                 {
-                    continue;
+
                 }
                 else{
                     objects.push_back(object_grasp());
@@ -325,6 +326,8 @@ void objectCallback(const tf2_msgs::TFMessage msg)
             }
         }
     }
+
+    std::cout << "The number of tracked objects: " << objects.size();
 }
 
 
@@ -389,12 +392,12 @@ void graspCallback(const agile_grasp::Grasps msg)
                     grasp_type = FINGER_TIP;
                 }
             }
-            else if(objects[j].object_type==CUP and width<(CUP_WIDTH + .02) and width>(CUP_WIDTH - .02))
+            else if(objects[j].object_type==CUP)
             {
                 geometry_msgs::Vector3 midpoint = getMidpoint(msg.grasps[i].surface_center, msg.grasps[i].center);
                 float dist = distanceCalc(midpoint, centroid);
                 //int rating = rateGrasp(msg.grasps[i],centroid);
-                if(!objects[j].hasGrasp  and dist<min_dist and dist<.08)
+                if(!objects[j].hasGrasp  and dist<min_dist)
                 {
                     best_object_index=j;
                     min_dist = dist;
@@ -424,7 +427,6 @@ void graspCallback(const agile_grasp::Grasps msg)
                     grasp_type = FINGER_TIP;
                 }
                  */
-                continue;
             }
 
         }
@@ -438,6 +440,8 @@ void graspCallback(const agile_grasp::Grasps msg)
         }
 
     }
+
+    std::cout <<"Tracked objects at grasp generation: " <<objects.size();
     if(!objects.empty())
     {
         object_grasp_pub.publish(generateObjectGraspListMessage());
