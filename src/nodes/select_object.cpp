@@ -327,7 +327,7 @@ void objectCallback(const tf2_msgs::TFMessage msg)
         }
     }
 
-    std::cout << "The number of tracked objects: " << objects.size();
+    //std::cout << "The number of tracked objects: " << objects.size();
 }
 
 
@@ -392,10 +392,10 @@ void graspCallback(const agile_grasp::Grasps msg)
                     grasp_type = FINGER_TIP;
                 }
             }
-            else if(objects[j].object_type==CUP)
+            else if(objects[j].object_type==CUP and width>.06 and width <.1)
             {
-                geometry_msgs::Vector3 midpoint = getMidpoint(msg.grasps[i].surface_center, msg.grasps[i].center);
-                float dist = distanceCalc(midpoint, centroid);
+                //geometry_msgs::Vector3 midpoint = getMidpoint(msg.grasps[i].surface_center, msg.grasps[i].center);
+                float dist = distanceCalc(msg.grasps[i].surface_center, centroid);
                 //int rating = rateGrasp(msg.grasps[i],centroid);
                 if(!objects[j].hasGrasp  and dist<min_dist)
                 {
@@ -441,7 +441,7 @@ void graspCallback(const agile_grasp::Grasps msg)
 
     }
 
-    std::cout <<"Tracked objects at grasp generation: " <<objects.size();
+    std::cout <<"Tracked objects at grasp generation: " <<objects.size() <<"\n";
     if(!objects.empty())
     {
         object_grasp_pub.publish(generateObjectGraspListMessage());
